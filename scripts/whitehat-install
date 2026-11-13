@@ -1,0 +1,84 @@
+#!/bin/bash
+# Instala o sistema live no disco.
+# ponytail: so BIOS/MBR com uma particao ext4; adicionar GPT/ESP (grub2-efi) quando precisar de UEFI.
+# ponytail: grub.cfg estatico aponta para o kernel da ISO; trocar por BLS/grub2-mkconfig
+#           para que 'dnf update' passe a inicializar kernels novos.
+if [ "$(id -u)" -ne 0 ]; then
+    echo "[ERRO] Execute este instalador como root: sudo whitehat-install"
+    exit 1
+fi
+
+clear
+echo "===================================================="
+echo "   Instalador Permanente - WhiteHat Linux Server 1.0"
+echo "===================================================="
+echo ""
+[ -d /sys/firmware/efi ] && echo "[AVISO] Boot em modo UEFI detectado: este instalador so grava boot BIOS/Legacy (ative CSM)." && echo ""
+echo "Discos detectados no sistema:"
+lsblk -d -o NAME,SIZE,MODEL | grep -v "sr0"
+echo ""
+read -rp "Digite o disco de destino (ex: sda, vda ou nvme0n1): " DISK_NAME
+
+TARGET_DISK="/dev/${DISK_NAME}"
+case "$DISK_NAME" in
+    *[0-9]) TARGET_PART="${TARGET_DISK}p1" ;;
+    *)      TARGET_PART="${TARGET_DISK}1" ;;
+esac
+
+if [ -z "$DISK_NAME" ] || [ ! -b "$TARGET_DISK" ]; then
+    echo "[ERRO] O disco $TARGET_DISK nao foi encontrado."
+    exit 1
+fi
+
+echo ""
+echo "ATENCAO: TODOS os dados em $TARGET_DISK serao apagados!"
+read -rp "Digite 'SIM' para confirmar a instalacao: " CONFIRM
+
+if [ "$CONFIRM" != "SIM" ]; then
+    echo "Instalacao cancelada."
+    exit 0
+fi
+
+set -e
+MNT=/mnt/install
+
+echo ""
+echo "[1/5] Particionando e formatando $TARGET_DISK..."
+parted -s "$TARGET_DISK" mklabel msdos
+parted -s "$TARGET_DISK" mkpart primary ext4 1MiB 100%
+parted -s "$TARGET_DISK" set 1 boot on
+udevadm settle
+mkfs.ext4 -q -F -L "WHITEHAT_ROOT" "$TARGET_PART"
+
+echo "[2/5] Copiando arquivos do sistema para o disco..."
+mkdir -p "$MNT"
+mount "$TARGET_PART" "$MNT"
+cp -ax / "$MNT"
+
+echo "[3/5] Configurando o sistema instalado..."
+rm -f "$MNT/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+echo "LABEL=WHITEHAT_ROOT / ext4 defaults 0 1" > "$MNT/etc/fstab"
+mount --bind /dev "$MNT/dev"
+chroot "$MNT" /usr/local/bin/whitehat-adduser
+umount "$MNT/dev"
+
+echo "[4/5] Instalando o bootloader (GRUB)..."
+grub2-install --target=i386-pc --boot-directory="$MNT/boot" "$TARGET_DISK"
+cat << 'GRUBEOF' > "$MNT/boot/grub2/grub.cfg"
+set timeout=3
+set default=0
+
+menuentry "WhiteHat Linux Server 1.0" {
+    linux /boot/vmlinuz-whitehat root=LABEL=WHITEHAT_ROOT rw console=tty0
+    initrd /boot/initramfs-whitehat.img
+}
+GRUBEOF
+
+echo "[5/5] Aplicando rotulos SELinux e finalizando..."
+setfiles -r "$MNT" "$MNT/etc/selinux/targeted/contexts/files/file_contexts" "$MNT"
+umount "$MNT"
+echo ""
+echo "===================================================="
+echo "   Instalacao concluida com sucesso!                "
+echo "   Remova a ISO e digite 'reboot'                   "
+echo "===================================================="

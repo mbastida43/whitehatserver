@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Cores do terminal
+W='\e[1;37m'   # Branco brilhante
+C='\e[1;36m'   # Ciano
+G='\e[1;32m'   # Verde
+R='\e[0m'      # Resetar cor
+
+# Coleta de informações reais do sistema
+OS_NAME=$(grep '^PRETTY_NAME=' /etc/os-release | cut -d'"' -f2)
+KERNEL=$(uname -r)
+UPTIME=$(uptime -p 2>/dev/null | sed 's/up //' || awk '{print int($1/60)" min"}' /proc/uptime)
+MEM_TOTAL=$(awk '/MemTotal/ {printf "%.0f", $2/1024}' /proc/meminfo)
+MEM_AVAIL=$(awk '/MemAvailable/ {printf "%.0f", $2/1024}' /proc/meminfo)
+MEM_USED=$((MEM_TOTAL - MEM_AVAIL))
+IP_ADDR=$(ip -4 addr show | awk '/inet / && !/127.0.0.1/ {print $2}' | cut -d/ -f1 | head -n 1)
+[ -z "$IP_ADDR" ] && IP_ADDR="Desconectado"
+PACKAGES=$(rpm -qa | wc -l)
+
+echo ""
+echo -e "${W}         .-------.         ${G}${USER}@$(hostname)${R}"
+echo -e "${W}        /         \\        ${W}------------------------${R}"
+echo -e "${W}       |   _   _   |       ${C}OS:${R} ${OS_NAME}"
+echo -e "${W}     .-'-----------'-.     ${C}Kernel:${R} ${KERNEL}"
+echo -e "${W}    (_________________)    ${C}Uptime:${R} ${UPTIME}"
+echo -e "${W}                           ${C}Pacotes:${R} ${PACKAGES} (rpm)"
+echo -e "${W}     [ WHITEHAT OS ]       ${C}Shell:${R} ${SHELL##*/}"
+echo -e "${W}                           ${C}Memoria:${R} ${MEM_USED} MiB / ${MEM_TOTAL} MiB"
+echo -e "${W}                           ${C}IP Local:${R} ${IP_ADDR}"
+echo ""

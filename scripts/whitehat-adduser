@@ -1,0 +1,13 @@
+#!/bin/bash
+# Cria o usuario padrao (grupo wheel = sudo).
+# Usado pelo OOBE do WSL e pelo whitehat-install. O useradd valida o nome.
+echo "===================================================="
+echo "   Configuracao Inicial - WhiteHat Linux Server 1.0 "
+echo "===================================================="
+echo ""
+echo "Crie sua conta de usuario padrao (com acesso ao sudo)."
+while true; do
+    read -rp "Digite o nome do novo usuario: " NEW_USER
+    useradd -m -s /bin/bash -G wheel -- "$NEW_USER" && break
+done
+until passwd "$NEW_USER"; do :; done

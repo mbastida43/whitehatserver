@@ -1,0 +1,8 @@
+NAME="WhiteHat Linux"
+VERSION="1.0 (Server Edition, Fedora 45 Base)"
+ID=whitehat
+ID_LIKE=fedora
+VERSION_ID=45
+VARIANT="Server Edition"
+VARIANT_ID=server
+PRETTY_NAME="WhiteHat Linux Server 1.0 (F45)"
