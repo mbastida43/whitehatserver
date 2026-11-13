@@ -47,6 +47,11 @@ build_base() {
     install -m 755 scripts/whitefetch "$ROOT/usr/local/bin/whitefetch"
     install -m 755 scripts/whitehat-adduser "$ROOT/usr/local/bin/whitehat-adduser"
     : > "$ROOT/etc/machine-id"   # cada instalacao gera o seu no primeiro boot
+
+    # O Fedora 45 poe o kmscon no tty1; ele exige KMS e deixa a tela preta com 'nomodeset'.
+    # O WhiteHat usa o getty de texto classico, que funciona em qualquer video.
+    systemctl --root="$ROOT" disable kmsconvt@.service
+    systemctl --root="$ROOT" enable getty@.service
 }
 
 build_wsl() {
